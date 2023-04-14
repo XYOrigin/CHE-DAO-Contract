@@ -3,10 +3,10 @@ import { ethers, upgrades } from 'hardhat';
 
 describe('CHEDAOToken', () => {
   it('should be deploy', async () => {
-    const WelcomeEvenOne = await ethers.getContractFactory('CHEDAOToken');
-    const welcomeEvenOne = await upgrades.deployProxy(WelcomeEvenOne, []);
-    await welcomeEvenOne.deployed();
+    const CHEDAOToken = await ethers.getContractFactory('CHEDAOToken');
+    const cheDAOToken = await upgrades.deployProxy(CHEDAOToken, []);
+    await cheDAOToken.deployed();
 
-    expect(await welcomeEvenOne.name()).to.equal('CHEDAOToken');
+    expect(await cheDAOToken.name()).to.equal('CHEDAOToken');
   });
 });
