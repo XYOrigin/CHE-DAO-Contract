@@ -4,10 +4,12 @@ import { deployNetwork } from './deploy.const';
 type ContractDeployAddress = string | null;
 
 interface ContractDeployAddressInterface {
-  // WelcomeEveryOne: ContractDeployAddress;
+  CHEDAOToken?: ContractDeployAddress;
 }
 
-const ContractDeployAddress_PolygonTestNet: ContractDeployAddressInterface = {};
+const ContractDeployAddress_PolygonTestNet: ContractDeployAddressInterface = {
+  CHEDAOToken: '0x23e26BD9C095f182b720a1C86Dfd9ef9D84Ed9C8',
+};
 
 const ContractDeployAddress_PolygonMainNet: ContractDeployAddressInterface = {};
 

@@ -1,5 +1,5 @@
 {
-  "name": "0x00-dao-contracts",
+  "name": "che-dao-contracts",
   "scripts": {
     "test": "npx hardhat test",
     "compile": "rm -rf ./abi && npx hardhat export-abi && find ./abi/contracts -name '*.json'|xargs -I file npx abi-types-generator file --provider=ethers_v5"
@@ -9,10 +9,10 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
     "@nomiclabs/hardhat-solhint": "^3.0.1",
-    "@openzeppelin/contracts": "^4.8.1",
-    "@openzeppelin/contracts-upgradeable": "^4.8.1",
-    "@openzeppelin/hardhat-defender": "^1.8.1",
-    "@openzeppelin/hardhat-upgrades": "^1.18.0",
+    "@openzeppelin/contracts": "^4.8.3",
+    "@openzeppelin/contracts-upgradeable": "^4.8.3",
+    "@openzeppelin/hardhat-defender": "^1.8.2",
+    "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@types/chai": "^4.3.4",
     "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.18",
