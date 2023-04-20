@@ -14,28 +14,28 @@ contract VeTokenUpgradeable is
     IERC20MetadataUpgradeable
 {
     struct Point {
-        uint256 bias; // - 可以获得的veCRV数量总数
-        uint256 slope; // 每秒可以获得的veCRV数量
-        uint256 ts; // 质押开始时间
-        uint256 blk; // 质押开始区块
+        uint256 bias; // total amount of veCRV that can be obtained
+        uint256 slope; // amount of veCRV that can be obtained per second
+        uint256 ts; // lock start time
+        uint256 blk; // lock start block
     }
 
     struct LockedBalance {
-        uint256 amount; // 锁定数量
-        uint256 end; // 锁定结束时间
+        uint256 amount; // locked amount
+        uint256 end; // lock end time, second
     }
 
-    mapping(address => LockedBalance) private _locked; // 锁定的数量
+    mapping(address => LockedBalance) private _locked; // locked amount
 
     uint256 public constant WEEK = 7 * 86400; // all future times are rounded by week
     uint256 public constant MAXTIME = 4 * 365 * 86400; // 4 years
     uint256 public constant MULTIPLIER = 10 ** 18;
 
-    uint256 private _currentEpoch; // 全局质押周期
-    Point[] private _pointHistory; // 全局质押点
+    uint256 private _currentEpoch; // global pledge cycle
+    Point[] private _pointHistory; // global pledge point
 
-    mapping(address => Point[]) private _userPointHistory; // 用户质押点
-    mapping(address => uint256) private _userPointEpoch; // 用户质押周期
+    mapping(address => Point[]) private _userPointHistory; // user pledge point
+    mapping(address => uint256) private _userPointEpoch; //  user pledge cycle
 
     string private _name;
     string private _symbol;
@@ -140,7 +140,7 @@ contract VeTokenUpgradeable is
             );
 
             Point memory lastPoint = _userPointHistory[account][_epoch];
-            //需要销毁的ve数量
+            //the number of ve to be destroyed
             uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
             if (_destroyAmount >= lastPoint.bias) {
                 lastPoint.bias = 0;
