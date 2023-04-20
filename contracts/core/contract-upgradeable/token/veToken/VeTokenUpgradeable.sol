@@ -13,8 +13,33 @@ contract VeTokenUpgradeable is
     IERC20Upgradeable,
     IERC20MetadataUpgradeable
 {
+    struct Point {
+        uint256 bias; // - 可以获得的veCRV数量总数
+        uint256 slope; // 每秒可以获得的veCRV数量
+        uint256 ts; // 质押开始时间
+        uint256 blk; // 质押开始区块
+    }
+
+    struct LockedBalance {
+        uint256 amount; // 锁定数量
+        uint256 end; // 锁定结束时间
+    }
+
+    mapping(address => LockedBalance) private _locked; // 锁定的数量
+
+    uint256 public constant WEEK = 7 * 86400; // all future times are rounded by week
+    uint256 public constant MAXTIME = 4 * 365 * 86400; // 4 years
+    uint256 public constant MULTIPLIER = 10 ** 18;
+
+    uint256 private _currentEpoch; // 全局质押周期
+    Point[] private _pointHistory; // 全局质押点
+
+    mapping(address => Point[]) private _userPointHistory; // 用户质押点
+    mapping(address => uint256) private _userPointEpoch; // 用户质押周期
+
     string private _name;
     string private _symbol;
+    uint8 private _decimals;
 
     IERC20MetadataUpgradeable private _tokenERC20;
 
@@ -38,6 +63,8 @@ contract VeTokenUpgradeable is
         _tokenERC20 = tokenERC20_;
         _name = name_;
         _symbol = symbol_;
+        _decimals = tokenERC20_.decimals();
+        _pointHistory.push(Point(0, 0, block.timestamp, block.number));
     }
 
     /**
@@ -78,7 +105,7 @@ contract VeTokenUpgradeable is
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
     function decimals() public view virtual override returns (uint8) {
-        return 18;
+        return _decimals;
     }
 
     /**
@@ -94,8 +121,34 @@ contract VeTokenUpgradeable is
     function balanceOf(
         address account
     ) public view virtual override returns (uint256) {
-        require(account == address(0), "VeToken: not allow transfer");
-        return 0;
+        return balanceOfAtTime(account, block.timestamp);
+    }
+
+    function balanceOfAtTime(
+        address account,
+        uint256 time
+    ) public view virtual returns (uint256) {
+        uint256 _epoch = _userPointEpoch[account];
+
+        if (_epoch == 0) {
+            return 0;
+        } else {
+            //check epoch in userPointHistory
+            require(
+                _userPointHistory[account][_epoch].ts <= time,
+                "VeToken: time is not in the epoch"
+            );
+
+            Point memory lastPoint = _userPointHistory[account][_epoch];
+            //需要销毁的ve数量
+            uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
+            if (_destroyAmount >= lastPoint.bias) {
+                lastPoint.bias = 0;
+            } else {
+                lastPoint.bias -= _destroyAmount;
+            }
+            return lastPoint.bias;
+        }
     }
 
     /**

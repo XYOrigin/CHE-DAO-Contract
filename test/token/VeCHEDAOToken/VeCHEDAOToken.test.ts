@@ -25,4 +25,14 @@ describe('veCHEDAOToken', () => {
     expect(await veCHEDAOToken.symbol()).to.equal('veCHE');
     expect(await veCHEDAOToken.decimals()).to.equal(18);
   });
+
+  describe('balanceOf', () => {
+    it('should return 0', async () => {
+      expect(await veCHEDAOToken.name()).to.equal('veCHEDAOToken');
+      expect(await veCHEDAOToken.symbol()).to.equal('veCHE');
+      expect(await veCHEDAOToken.decimals()).to.equal(18);
+      const [owner] = await ethers.getSigners();
+      expect(await veCHEDAOToken.balanceOf(owner.address)).to.equal(0);
+    });
+  });
 });
