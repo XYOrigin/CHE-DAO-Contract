@@ -133,13 +133,8 @@ contract VeTokenUpgradeable is
         if (_epoch == 0) {
             return 0;
         } else {
-            //check epoch in userPointHistory
-            require(
-                _userPointHistory[account][_epoch].ts <= time,
-                "VeToken: time is not in the epoch"
-            );
-
             Point memory lastPoint = _userPointHistory[account][_epoch];
+            require(lastPoint.ts <= time, "VeToken: time is not in the epoch");
             //the number of ve to be destroyed
             uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
             if (_destroyAmount >= lastPoint.bias) {
