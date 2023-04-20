@@ -19,8 +19,10 @@ describe('veCHEDAOToken', () => {
   it('should be deploy', async () => {
     expect(await cheDAOToken.name()).to.equal('CHEDAOToken');
     expect(await cheDAOToken.symbol()).to.equal('CHE');
+    expect(await cheDAOToken.decimals()).to.equal(18);
 
     expect(await veCHEDAOToken.name()).to.equal('veCHEDAOToken');
     expect(await veCHEDAOToken.symbol()).to.equal('veCHE');
+    expect(await veCHEDAOToken.decimals()).to.equal(18);
   });
 });
