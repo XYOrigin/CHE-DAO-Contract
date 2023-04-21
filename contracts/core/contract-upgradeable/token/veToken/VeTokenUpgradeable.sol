@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20Metadat
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 contract VeTokenUpgradeable is
     Initializable,
@@ -13,6 +14,8 @@ contract VeTokenUpgradeable is
     IERC20Upgradeable,
     IERC20MetadataUpgradeable
 {
+    using SafeERC20Upgradeable for IERC20MetadataUpgradeable;
+
     struct Point {
         uint256 bias; // total amount of veCRV that can be obtained
         uint256 slope; // amount of veCRV that can be obtained per second
@@ -25,11 +28,24 @@ contract VeTokenUpgradeable is
         uint256 end; // lock end time, second
     }
 
-    mapping(address => LockedBalance) private _locked; // locked amount
+    event Deposit(
+        address indexed user,
+        uint256 amount,
+        uint256 locktime,
+        uint256 operatorType,
+        uint256 blkTime
+    );
+    event Withdraw(address indexed user, uint256 amount, uint256 blkTime);
+    event Supply(uint256 preSupply, uint256 supply);
+
+    mapping(address => LockedBalance) private _userLockedBalance; // locked amount
 
     uint256 public constant WEEK = 7 * 86400; // all future times are rounded by week
     uint256 public constant MAXTIME = 4 * 365 * 86400; // 4 years
     uint256 public constant MULTIPLIER = 10 ** 18;
+
+    uint256 public constant OPERATOR_TYPE_CREATE_LOCK = 0; // create lock
+    uint256 public constant OPERATOR_TYPE_DEPOSIT = 1; // deposit
 
     uint256 private _currentEpoch; // global pledge cycle
     Point[] private _pointHistory; // global pledge point
@@ -40,6 +56,8 @@ contract VeTokenUpgradeable is
     string private _name;
     string private _symbol;
     uint8 private _decimals;
+
+    uint256 private _totalSupply;
 
     IERC20MetadataUpgradeable private _tokenERC20;
 
@@ -112,7 +130,7 @@ contract VeTokenUpgradeable is
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
-        return 0;
+        return _totalSupply;
     }
 
     /**
@@ -247,6 +265,77 @@ contract VeTokenUpgradeable is
         require(from == address(0), "VeToken: not allow transfer");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount > 0, "ERC20: transfer amount must be greater than zero");
+    }
+
+    function lockedBalanceOf(
+        address account
+    ) public view virtual returns (LockedBalance memory) {
+        return _userLockedBalance[account];
+    }
+
+    function createLock(uint256 amount, uint256 unlockTime) public virtual {
+        uint256 unlockTime_ = (unlockTime / WEEK) * WEEK; //round to week
+
+        LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
+        require(amount > 0, "VeToken: amount must be greater than zero");
+        require(lockedBalance_.amount == 0, "VeToken: already have a lock");
+        require(
+            unlockTime_ > block.timestamp,
+            "VeToken: unlock time must be greater than now"
+        );
+        require(
+            unlockTime_ <= block.timestamp + MAXTIME,
+            "VeToken: unlock time must be less than 4 year"
+        );
+
+        _deposit_for(
+            _msgSender(),
+            amount,
+            unlockTime_,
+            lockedBalance_,
+            OPERATOR_TYPE_CREATE_LOCK
+        );
+    }
+
+    function _deposit_for(
+        address account,
+        uint256 amount,
+        uint256 unlockTime,
+        LockedBalance memory lockedBalance,
+        uint256 operatorType
+    ) internal virtual {
+        LockedBalance memory lockedBalance_ = lockedBalance;
+        LockedBalance memory lockedBalanceBefore_ = lockedBalance;
+
+        uint256 supplyBefore = _totalSupply;
+
+        //update supply
+        _totalSupply += amount;
+        //update user locked balance
+        lockedBalance_.amount += amount;
+        if (unlockTime > 0) {
+            lockedBalance_.end = unlockTime;
+        }
+        //update user locked balance
+        _userLockedBalance[account] = lockedBalance_;
+
+        //update user point
+        //todo: add point
+
+        //transfer token
+        if (amount > 0) {
+            _tokenERC20.safeTransferFrom(_msgSender(), address(this), amount);
+        }
+
+        emit Deposit(
+            account,
+            amount,
+            lockedBalance_.end,
+            operatorType,
+            block.timestamp
+        );
+
+        emit Supply(supplyBefore, _totalSupply);
     }
 
     /**
