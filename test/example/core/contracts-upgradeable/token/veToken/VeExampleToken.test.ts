@@ -94,10 +94,15 @@ describe('VeExampleToken', () => {
 
   describe('withdraw', () => {
     let amount: number = 100;
+    let snapshotId: string;
     beforeEach(async () => {
+      snapshotId = await ethers.provider.send('evm_snapshot', []);
       const [owner] = await ethers.getSigners();
       //mint 100 token
       await exampleToken.mint(owner.address, amount);
+    });
+    afterEach(async () => {
+      await ethers.provider.send('evm_revert', [snapshotId]);
     });
     it('should success', async () => {
       const [owner] = await ethers.getSigners();
@@ -143,6 +148,41 @@ describe('VeExampleToken', () => {
       //check token balance
       expect(await exampleToken.balanceOf(veExampleToken.address)).to.equal(0);
       expect(await exampleToken.balanceOf(owner.address)).to.equal(amount);
+    });
+
+    it('should failed: not lock', async () => {
+      //withdraw
+      await expect(veExampleToken.withdraw()).rejectedWith(
+        'VeToken: no locked balance to withdraw'
+      );
+    });
+
+    it('should failed: not unlock', async () => {
+      const [owner] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week;
+      await exampleToken.approve(veExampleToken.address, amount);
+
+      await veExampleToken.createLock(amount, BigNumber.from(lockTime));
+
+      //check lock balance
+      const lockBalance = await veExampleToken.lockedBalanceOf(owner.address);
+      expect(lockBalance.amount).to.equal(amount);
+      expect(lockBalance.end).to.equal(
+        BigNumber.from(Math.floor(lockTime / week) * week)
+      );
+
+      //check token balance
+      expect(await exampleToken.balanceOf(veExampleToken.address)).to.equal(
+        amount
+      );
+      expect(await exampleToken.balanceOf(owner.address)).to.equal(0);
+
+      //withdraw
+      await expect(veExampleToken.withdraw()).rejectedWith(
+        'VeToken: locked balance is not unlock'
+      );
     });
   });
 });
