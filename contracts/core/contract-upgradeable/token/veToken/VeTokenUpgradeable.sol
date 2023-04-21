@@ -297,6 +297,37 @@ contract VeTokenUpgradeable is
         );
     }
 
+    function withdraw() public virtual {
+        LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
+        require(
+            lockedBalance_.amount > 0,
+            "VeToken: no locked balance to withdraw"
+        );
+        require(
+            lockedBalance_.end <= block.timestamp,
+            "VeToken: locked balance is not unlock"
+        );
+
+        uint256 amount = lockedBalance_.amount;
+        lockedBalance_.amount = 0;
+        lockedBalance_.end = 0;
+
+        _userLockedBalance[_msgSender()] = lockedBalance_;
+        //update supply
+        uint256 supplyBefore = _totalSupply;
+        _totalSupply -= amount;
+
+        //todo: check point
+
+        //transfer token
+        if (amount > 0) {
+            _tokenERC20.safeTransfer(_msgSender(), amount);
+        }
+
+        emit Withdraw(_msgSender(), amount, block.timestamp);
+        emit Supply(supplyBefore, _totalSupply);
+    }
+
     function _deposit_for(
         address account,
         uint256 amount,
