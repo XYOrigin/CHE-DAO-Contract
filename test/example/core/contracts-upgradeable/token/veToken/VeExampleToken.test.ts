@@ -77,6 +77,72 @@ describe('VeExampleToken', () => {
       expect(await exampleToken.balanceOf(owner.address)).to.equal(0);
     });
 
-    it('should create lock with 0 amount', async () => {});
+    it('should create lock failed: already lock', async () => {
+      const [owner] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week;
+      await exampleToken.approve(veExampleToken.address, amount);
+
+      await veExampleToken.createLock(amount / 2, BigNumber.from(lockTime));
+
+      await expect(
+        veExampleToken.createLock(amount / 2, BigNumber.from(lockTime))
+      ).to.be.revertedWith('VeToken: already have a lock');
+    });
+  });
+
+  describe('withdraw', () => {
+    let amount: number = 100;
+    beforeEach(async () => {
+      const [owner] = await ethers.getSigners();
+      //mint 100 token
+      await exampleToken.mint(owner.address, amount);
+    });
+    it('should success', async () => {
+      const [owner] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week;
+      await exampleToken.approve(veExampleToken.address, amount);
+
+      await veExampleToken.createLock(amount, BigNumber.from(lockTime));
+
+      //check lock balance
+      const lockBalance = await veExampleToken.lockedBalanceOf(owner.address);
+      expect(lockBalance.amount).to.equal(amount);
+      expect(lockBalance.end).to.equal(
+        BigNumber.from(Math.floor(lockTime / week) * week)
+      );
+
+      //check token balance
+      expect(await exampleToken.balanceOf(veExampleToken.address)).to.equal(
+        amount
+      );
+      expect(await exampleToken.balanceOf(owner.address)).to.equal(0);
+
+      //change block timestamp + 1 week
+      await ethers.provider.send('evm_increaseTime', [week]);
+      //get block timestamp
+      let block = await ethers.provider.getBlock('latest');
+
+      //withdraw
+      await expect(veExampleToken.withdraw())
+        .to.emit(veExampleToken, 'Withdraw')
+        .withArgs(owner.address, amount, (x: BigNumber) =>
+          x.gt(block.timestamp)
+        )
+        .to.emit(veExampleToken, 'Supply')
+        .withArgs(amount, 0);
+
+      //check lock balance
+      const lockBalance2 = await veExampleToken.lockedBalanceOf(owner.address);
+      expect(lockBalance2.amount).to.equal(0);
+      expect(lockBalance2.end).to.equal(0);
+
+      //check token balance
+      expect(await exampleToken.balanceOf(veExampleToken.address)).to.equal(0);
+      expect(await exampleToken.balanceOf(owner.address)).to.equal(amount);
+    });
   });
 });
