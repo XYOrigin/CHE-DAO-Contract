@@ -90,6 +90,34 @@ describe('VeExampleToken', () => {
         veExampleToken.createLock(amount / 2, BigNumber.from(lockTime))
       ).to.be.revertedWith('VeToken: already have a lock');
     });
+
+    it('should create lock success, get veToken', async () => {
+      const [owner] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week;
+      await exampleToken.approve(veExampleToken.address, amount);
+
+      //get block timestamp
+      const block = await ethers.provider.getBlock('latest');
+
+      await expect(veExampleToken.createLock(amount, BigNumber.from(lockTime)))
+        .to.emit(veExampleToken, 'Deposit')
+        .withArgs(
+          owner.address,
+          amount,
+          BigNumber.from(Math.floor(lockTime / week) * week),
+          0,
+          (x: BigNumber) => x.gt(block.timestamp)
+        )
+        .to.emit(veExampleToken, 'Supply')
+        .withArgs(0, amount);
+
+      const veTokenBalance: BigNumber = await veExampleToken.balanceOf(
+        owner.address
+      );
+      expect(veTokenBalance).to.equal(0);
+    });
   });
 
   describe('withdraw', () => {
