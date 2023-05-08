@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "hardhat/console.sol";
 
 contract VeTokenUpgradeable is
     Initializable,
@@ -149,12 +150,12 @@ contract VeTokenUpgradeable is
         uint256 time
     ) public view virtual returns (uint256) {
         uint256 _epoch = _userPointEpoch[account];
-
         if (_epoch == 0) {
             return 0;
         } else {
             Point memory lastPoint = _userPointHistory[account][_epoch];
             require(lastPoint.ts <= time, "VeToken: time is not in the epoch");
+
             //the number of ve to be destroyed
             uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
             if (_destroyAmount >= lastPoint.bias) {
@@ -273,8 +274,15 @@ contract VeTokenUpgradeable is
         return _userLockedBalance[account];
     }
 
+    /// @dev Returns the timestamp of the current block. unlocked
+    function calculateUnlockTime(
+        uint256 unlockTime
+    ) public pure returns (uint256) {
+        return (unlockTime / WEEK) * WEEK;
+    }
+
     function createLock(uint256 amount, uint256 unlockTime) public virtual {
-        uint256 unlockTime_ = (unlockTime / WEEK) * WEEK; //round to week
+        uint256 unlockTime_ = calculateUnlockTime(unlockTime); //round to week
 
         LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
         require(amount > 0, "VeToken: amount must be greater than zero");
@@ -336,8 +344,11 @@ contract VeTokenUpgradeable is
         LockedBalance memory lockedBalance,
         uint256 operatorType
     ) internal virtual {
+        LockedBalance memory lockedBalanceBefore_ = LockedBalance(
+            lockedBalance.amount,
+            lockedBalance.end
+        );
         LockedBalance memory lockedBalance_ = lockedBalance;
-        LockedBalance memory lockedBalanceBefore_ = lockedBalance;
 
         uint256 supplyBefore = _totalSupply;
 
@@ -497,7 +508,6 @@ contract VeTokenUpgradeable is
             if (oldLocked.end > block.timestamp) {
                 //old_dslope was <something> - u_old.slope, so we cancel that
                 oldDslope -= uOld.slope;
-                // if new_locked.end == old_locked.end:
                 if (newLocked.end == oldLocked.end) {
                     //It was a new deposit, not extension
                     oldDslope -= uNew.slope;
@@ -506,11 +516,9 @@ contract VeTokenUpgradeable is
             }
 
             if (newLocked.end > block.timestamp) {
-                //if new_locked.end > old_locked.end:
                 if (newLocked.end > oldLocked.end) {
                     //new_dslope was <something> + u_new.slope, so we cancel that
-                    newDslope -= uNew.slope;
-                    // self.slope_changes[new_locked.end] = new_dslope
+                    newDslope += uNew.slope;
                     _slopeChanges[newLocked.end] = newDslope;
                 }
             }
