@@ -38,6 +38,18 @@ contract VeTokenUpgradeable is
         uint256 operatorType,
         uint256 blkTime
     );
+
+    error Error_VeTokenUpgradeable__Require_Not_Contract();
+
+    //  "VeToken: amount must be greater than zero"
+    error Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
+    //  "VeToken: no locked balance"
+    error Error_VeTokenUpgradeable__Require_No_Locked_Balance();
+    // "VeToken: locked balance is unlock"
+    error Error_VeTokenUpgradeable__Require_Locked_Balance_Is_Unlock();
+    // "VeToken: unlock time must be less than 4 year"
+    error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
+
     event Withdraw(address indexed user, uint256 amount, uint256 blkTime);
     event Supply(uint256 preSupply, uint256 supply);
 
@@ -293,16 +305,18 @@ contract VeTokenUpgradeable is
         uint256 unlockTime_ = calculateUnlockTime(unlockTime); //round to week
 
         LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
-        require(amount > 0, "VeToken: amount must be greater than zero");
+        if (amount == 0) {
+            revert Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
+        }
         require(lockedBalance_.amount == 0, "VeToken: already have a lock");
         require(
             unlockTime_ > block.timestamp,
             "VeToken: unlock time must be greater than now"
         );
-        require(
-            unlockTime_ <= block.timestamp + MAXTIME,
-            "VeToken: unlock time must be less than 4 year"
-        );
+
+        if (unlockTime_ > block.timestamp + MAXTIME) {
+            revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
+        }
 
         _deposit_for(
             _msgSender(),
@@ -313,19 +327,25 @@ contract VeTokenUpgradeable is
         );
     }
 
+    function requireNotContract(address account) internal view {
+        if (AddressUpgradeable.isContract(account)) {
+            revert Error_VeTokenUpgradeable__Require_Not_Contract();
+        }
+    }
+
     function increaseAmount(uint256 amount) external virtual {
-        require(
-            AddressUpgradeable.isContract(_msgSender()) == false,
-            "VeToken: not allow contract"
-        );
+        requireNotContract(_msgSender());
 
         LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
-        require(amount > 0, "VeToken: amount must be greater than zero");
-        require(lockedBalance_.amount > 0, "VeToken: no locked balance");
-        require(
-            lockedBalance_.end > block.timestamp,
-            "VeToken: locked balance is unlock"
-        );
+        if (amount == 0) {
+            revert Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
+        }
+        if (lockedBalance_.amount == 0) {
+            revert Error_VeTokenUpgradeable__Require_No_Locked_Balance();
+        }
+        if (lockedBalance_.end <= block.timestamp) {
+            revert Error_VeTokenUpgradeable__Require_Locked_Balance_Is_Unlock();
+        }
 
         _deposit_for(
             _msgSender(),
@@ -333,6 +353,35 @@ contract VeTokenUpgradeable is
             0,
             lockedBalance_,
             OPERATOR_TYPE_INCREASE_LOCK_AMOUNT
+        );
+    }
+
+    function increaseUnlockTime(uint256 unlockTime) external virtual {
+        requireNotContract(_msgSender());
+        uint256 unlockTime_ = calculateUnlockTime(unlockTime); //round to week
+
+        LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
+        if (lockedBalance_.amount == 0) {
+            revert Error_VeTokenUpgradeable__Require_No_Locked_Balance();
+        }
+        if (lockedBalance_.end <= block.timestamp) {
+            revert Error_VeTokenUpgradeable__Require_Locked_Balance_Is_Unlock();
+        }
+        require(
+            unlockTime_ > lockedBalance_.end,
+            "VeToken: unlock time must be greater than current unlock time"
+        );
+
+        if (unlockTime_ > block.timestamp + MAXTIME) {
+            revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
+        }
+
+        _deposit_for(
+            _msgSender(),
+            0,
+            unlockTime_,
+            lockedBalance_,
+            OPERATOR_TYPE_INCREASE_UNLOCK_TIME
         );
     }
 

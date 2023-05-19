@@ -353,7 +353,7 @@ describe('VeExampleToken', () => {
     });
   });
 
-  describe.only('increaseAmount', () => {
+  describe('increaseAmount', () => {
     let amount: BigNumber = ethers.utils.parseEther('100');
     let amount2: BigNumber = ethers.utils.parseEther('100');
     let snapshotId: string;
@@ -444,6 +444,92 @@ describe('VeExampleToken', () => {
       );
       // console.log('veTokenBalance2', veTokenBalance2.toString());
       expect(veTokenBalance2).eq(veTokenBalance.mul(2));
+    });
+  });
+
+  describe('increaseUnlockTime', () => {
+    let amount: BigNumber = ethers.utils.parseEther('100');
+    let snapshotId: string;
+    beforeEach(async () => {
+      snapshotId = await ethers.provider.send('evm_snapshot', []);
+      const [owner] = await ethers.getSigners();
+      //mint 100 token
+      await exampleToken.mint(owner.address, amount);
+    });
+    afterEach(async () => {
+      await ethers.provider.send('evm_revert', [snapshotId]);
+    });
+
+    it('should success', async () => {
+      const [owner] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week;
+      await exampleToken.approve(veExampleToken.address, amount);
+
+      //get block timestamp
+      const block = await ethers.provider.getBlock('latest');
+
+      let createLockTime = block.timestamp;
+      await expect(veExampleToken.createLock(amount, BigNumber.from(lockTime)))
+        .to.emit(veExampleToken, 'Deposit')
+        .withArgs(
+          owner.address,
+          amount,
+          BigNumber.from(Math.floor(lockTime / week) * week),
+          0,
+          (x: BigNumber) => {
+            createLockTime = x.toNumber() + 5 * 60;
+            return x.gt(block.timestamp);
+          }
+        )
+        .to.emit(veExampleToken, 'Supply')
+        .withArgs(0, amount);
+
+      const lockBalance = await veExampleToken.lockedBalanceOf(owner.address);
+      expect(lockBalance.amount).to.equal(amount);
+      expect(lockBalance.end).to.equal(
+        BigNumber.from(Math.floor(lockTime / week) * week)
+      );
+
+      //check veToken balance
+      const veTokenBalance: BigNumber = await veExampleToken.balanceOfAtTime(
+        owner.address,
+        createLockTime
+      );
+      // console.log('veTokenBalance', veTokenBalance.toString());
+      expect(veTokenBalance).not.eq(0);
+
+      //increase unlock time
+      const newLockTime = lockTime + week;
+      await expect(veExampleToken.increaseUnlockTime(newLockTime))
+        .to.emit(veExampleToken, 'Deposit')
+        .withArgs(
+          owner.address,
+          0,
+          BigNumber.from(Math.floor(newLockTime / week) * week),
+          3,
+          (x: BigNumber) => {
+            return x.gt(block.timestamp);
+          }
+        )
+        .to.emit(veExampleToken, 'Supply')
+        .withArgs(amount, amount);
+
+      //check lock balance
+      const lockBalance2 = await veExampleToken.lockedBalanceOf(owner.address);
+      expect(lockBalance2.amount).to.equal(amount);
+      expect(lockBalance2.end).to.equal(
+        BigNumber.from(Math.floor(newLockTime / week) * week)
+      );
+
+      //check veToken balance
+      const veTokenBalance2: BigNumber = await veExampleToken.balanceOfAtTime(
+        owner.address,
+        createLockTime
+      );
+      // console.log('veTokenBalance2', veTokenBalance2.toString());
+      expect(veTokenBalance2).gt(veTokenBalance.mul(2));
     });
   });
 });
