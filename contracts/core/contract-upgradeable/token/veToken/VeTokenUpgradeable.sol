@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {AddressUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+
 import "hardhat/console.sol";
 
 contract VeTokenUpgradeable is
@@ -47,6 +49,8 @@ contract VeTokenUpgradeable is
 
     uint256 public constant OPERATOR_TYPE_CREATE_LOCK = 0; // create lock
     uint256 public constant OPERATOR_TYPE_DEPOSIT = 1; // deposit
+    uint256 public constant OPERATOR_TYPE_INCREASE_LOCK_AMOUNT = 2; // lock amount
+    uint256 public constant OPERATOR_TYPE_INCREASE_UNLOCK_TIME = 3; // increase unlock time
 
     uint256 private _currentEpoch; // global pledge cycle
     Point[] private _pointHistory; // global pledge point
@@ -281,11 +285,11 @@ contract VeTokenUpgradeable is
         return (unlockTime / WEEK) * WEEK;
     }
 
-    function checkpoint() public virtual {
+    function checkpoint() external virtual {
         _checkpoint(address(0), LockedBalance(0, 0), LockedBalance(0, 0));
     }
 
-    function createLock(uint256 amount, uint256 unlockTime) public virtual {
+    function createLock(uint256 amount, uint256 unlockTime) external virtual {
         uint256 unlockTime_ = calculateUnlockTime(unlockTime); //round to week
 
         LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
@@ -309,7 +313,30 @@ contract VeTokenUpgradeable is
         );
     }
 
-    function withdraw() public virtual {
+    function increaseAmount(uint256 amount) external virtual {
+        require(
+            AddressUpgradeable.isContract(_msgSender()) == false,
+            "VeToken: not allow contract"
+        );
+
+        LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
+        require(amount > 0, "VeToken: amount must be greater than zero");
+        require(lockedBalance_.amount > 0, "VeToken: no locked balance");
+        require(
+            lockedBalance_.end > block.timestamp,
+            "VeToken: locked balance is unlock"
+        );
+
+        _deposit_for(
+            _msgSender(),
+            amount,
+            0,
+            lockedBalance_,
+            OPERATOR_TYPE_INCREASE_LOCK_AMOUNT
+        );
+    }
+
+    function withdraw() external virtual {
         LockedBalance memory lockedBalance_ = _userLockedBalance[_msgSender()];
         require(
             lockedBalance_.amount > 0,
@@ -515,7 +542,7 @@ contract VeTokenUpgradeable is
                 oldDslope -= uOld.slope;
                 if (newLocked.end == oldLocked.end) {
                     //It was a new deposit, not extension
-                    oldDslope -= uNew.slope;
+                    oldDslope += uNew.slope;
                 }
                 _slopeChanges[oldLocked.end] = oldDslope;
             }
