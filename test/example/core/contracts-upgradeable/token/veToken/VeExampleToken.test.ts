@@ -153,7 +153,7 @@ describe('VeExampleToken', () => {
     });
   });
 
-  describe.only('balanceOfAtTime', () => {
+  describe('balanceOfAtTime', () => {
     let amount: BigNumber = ethers.utils.parseEther('100');
     let snapshotId: string;
 
@@ -292,6 +292,9 @@ describe('VeExampleToken', () => {
 
       //change block timestamp + 1 week
       await ethers.provider.send('evm_increaseTime', [week]);
+
+      await veExampleToken.checkpoint();
+
       //get block timestamp
       let block = await ethers.provider.getBlock('latest');
 

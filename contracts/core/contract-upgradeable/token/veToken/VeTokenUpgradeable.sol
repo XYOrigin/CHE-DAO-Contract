@@ -281,6 +281,10 @@ contract VeTokenUpgradeable is
         return (unlockTime / WEEK) * WEEK;
     }
 
+    function checkpoint() public virtual {
+        _checkpoint(address(0), LockedBalance(0, 0), LockedBalance(0, 0));
+    }
+
     function createLock(uint256 amount, uint256 unlockTime) public virtual {
         uint256 unlockTime_ = calculateUnlockTime(unlockTime); //round to week
 
@@ -477,7 +481,8 @@ contract VeTokenUpgradeable is
                 lastPoint.blk = block.number;
                 break;
             } else {
-                _pointHistory[_epoch] = lastPoint;
+                _increasePointHistory(_epoch, lastPoint);
+                // _pointHistory[_epoch] = lastPoint;
             }
         }
 
