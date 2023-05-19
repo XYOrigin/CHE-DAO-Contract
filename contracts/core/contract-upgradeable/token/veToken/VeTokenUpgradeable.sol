@@ -43,12 +43,16 @@ contract VeTokenUpgradeable is
 
     //  "VeToken: amount must be greater than zero"
     error Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
+    // "VeToken: unlock time must be greater than now"
+    error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Now();
     //  "VeToken: no locked balance"
     error Error_VeTokenUpgradeable__Require_No_Locked_Balance();
     // "VeToken: locked balance is unlock"
     error Error_VeTokenUpgradeable__Require_Locked_Balance_Is_Unlock();
     // "VeToken: unlock time must be less than 4 year"
     error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
+    // "VeToken: unlock time must be greater than current unlock time"
+    error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Current_Unlock_Time();
 
     event Withdraw(address indexed user, uint256 amount, uint256 blkTime);
     event Supply(uint256 preSupply, uint256 supply);
@@ -208,8 +212,8 @@ contract VeTokenUpgradeable is
         address spender
     ) public view virtual override returns (uint256) {
         //not allow transfer
-        require(spender == address(0), "VeToken: not allow transfer");
-        require(owner == address(0), "VeToken: not allow transfer");
+        require(spender == address(0));
+        require(owner == address(0));
         return 0;
     }
 
@@ -228,8 +232,8 @@ contract VeTokenUpgradeable is
         uint256 amount
     ) public virtual override returns (bool) {
         //not allow transfer
-        require(spender == address(0), "VeToken: not allow transfer");
-        require(amount > 0, "ERC20: transfer amount must be greater than zero");
+        require(spender == address(0));
+        require(amount > 0);
         return true;
     }
 
@@ -255,9 +259,9 @@ contract VeTokenUpgradeable is
         uint256 amount
     ) public virtual override returns (bool) {
         //not allow transfer
-        require(from == address(0), "VeToken: not allow transfer");
-        require(to != address(0), "ERC20: transfer to the zero address");
-        require(amount > 0, "ERC20: transfer amount must be greater than zero");
+        require(from == address(0));
+        require(to != address(0));
+        require(amount > 0);
         return true;
     }
 
@@ -281,7 +285,7 @@ contract VeTokenUpgradeable is
         uint256 amount
     ) internal virtual {
         //not allow transfer
-        require(false, "VeToken: transfer is not allowed");
+        require(false);
     }
 
     function lockedBalanceOf(
@@ -309,10 +313,9 @@ contract VeTokenUpgradeable is
             revert Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
         }
         require(lockedBalance_.amount == 0, "VeToken: already have a lock");
-        require(
-            unlockTime_ > block.timestamp,
-            "VeToken: unlock time must be greater than now"
-        );
+        if (unlockTime_ < block.timestamp) {
+            revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Now();
+        }
 
         if (unlockTime_ > block.timestamp + MAXTIME) {
             revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
@@ -367,10 +370,9 @@ contract VeTokenUpgradeable is
         if (lockedBalance_.end <= block.timestamp) {
             revert Error_VeTokenUpgradeable__Require_Locked_Balance_Is_Unlock();
         }
-        require(
-            unlockTime_ > lockedBalance_.end,
-            "VeToken: unlock time must be greater than current unlock time"
-        );
+        if (unlockTime_ <= block.timestamp) {
+            revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Current_Unlock_Time();
+        }
 
         if (unlockTime_ > block.timestamp + MAXTIME) {
             revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Less_Than_4_Year();
@@ -633,6 +635,22 @@ contract VeTokenUpgradeable is
         }
         require(user_epoch == _userPointHistory[account].length, "invariant");
         _userPointHistory[account].push(point);
+    }
+
+    function getLastUserSlop() external view returns (uint256) {
+        uint256 uepoch = _userPointEpoch[_msgSender()];
+        return _userPointHistory[_msgSender()][uepoch].slope;
+    }
+
+    function userPointHistoryTs(
+        address account,
+        uint256 epoch
+    ) external view returns (uint256) {
+        return _userPointHistory[account][epoch].ts;
+    }
+
+    function lockedEnd(address account) external view returns (uint256) {
+        return _userLockedBalance[account].end;
     }
 
     /**
