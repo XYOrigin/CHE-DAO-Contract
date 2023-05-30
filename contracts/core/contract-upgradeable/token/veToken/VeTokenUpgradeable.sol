@@ -74,9 +74,9 @@ contract VeTokenUpgradeable is
 
     mapping(uint256 => uint256) private _slopeChanges; // time -> signed slope change
 
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
+    string private _name; // token name
+    string private _symbol; // token symbol
+    uint8 private _decimals; // token decimals
 
     uint256 private _lockedTotalSupply; // users locked amount
 
@@ -177,7 +177,7 @@ contract VeTokenUpgradeable is
     ) public virtual override returns (bool) {
         address owner = _msgSender();
         _transfer(owner, to, amount);
-        return true;
+        return false;
     }
 
     /**
@@ -210,7 +210,7 @@ contract VeTokenUpgradeable is
         //not allow transfer
         require(spender == address(0));
         require(amount > 0);
-        return true;
+        return false;
     }
 
     /**
@@ -235,10 +235,11 @@ contract VeTokenUpgradeable is
         uint256 amount
     ) public virtual override returns (bool) {
         //not allow transfer
+        require(false);
         require(from == address(0));
-        require(to != address(0));
-        require(amount > 0);
-        return true;
+        require(to == address(0));
+        require(amount == 0);
+        return false;
     }
 
     /**
@@ -262,6 +263,9 @@ contract VeTokenUpgradeable is
     ) internal virtual {
         //not allow transfer
         require(false);
+        require(from == address(0));
+        require(to == address(0));
+        require(amount == 0);
     }
 
     /// veToken specific functions
@@ -703,6 +707,28 @@ contract VeTokenUpgradeable is
         }
         require(user_epoch == _userPointHistory[account].length, "invariant");
         _userPointHistory[account].push(point);
+    }
+
+    function _findBlockEpoch(
+        uint256 _block,
+        uint256 maxEpoch
+    ) internal view returns (uint256) {
+        // Binary search
+        uint256 _min = 0;
+        uint256 _max = maxEpoch;
+        for (uint256 i = 0; i < 128; i++) {
+            //Will be always enough for 128-bit numbers
+            if (_min >= _max) {
+                break;
+            }
+            uint256 _mid = (_min + _max + 1) / 2;
+            if (_pointHistory[_mid].blk <= _block) {
+                _min = _mid;
+            } else {
+                _max = _mid - 1;
+            }
+        }
+        return _min;
     }
 
     /**
