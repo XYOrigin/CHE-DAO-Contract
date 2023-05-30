@@ -286,11 +286,15 @@ contract VeTokenUpgradeable is
         require(false);
     }
 
+    /// veToken specific functions
+
+    /// @dev Returns the current epoch for the user.
     function getLastUserSlop() external view returns (uint256) {
         uint256 uepoch = _userPointEpoch[_msgSender()];
         return _userPointHistory[_msgSender()][uepoch].slope;
     }
 
+    /// @dev Returns the current epoch for the user.
     function userPointHistoryTs(
         address account,
         uint256 epoch
@@ -298,6 +302,7 @@ contract VeTokenUpgradeable is
         return _userPointHistory[account][epoch].ts;
     }
 
+    /// @dev Returns the timestamp of the user's unlock time.
     function lockedEnd(address account) external view returns (uint256) {
         return _userLockedBalance[account].end;
     }
