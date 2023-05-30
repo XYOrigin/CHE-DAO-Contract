@@ -74,6 +74,11 @@ describe('VeExampleToken', () => {
       expect(await exampleToken.balanceOf(veExampleToken.address)).to.equal(
         amount
       );
+
+      await veExampleToken.lockedTotalSupply().then((x: BigNumber) => {
+        expect(x).to.equal(amount);
+      });
+
       expect(await exampleToken.balanceOf(owner.address)).to.equal(0);
     });
 

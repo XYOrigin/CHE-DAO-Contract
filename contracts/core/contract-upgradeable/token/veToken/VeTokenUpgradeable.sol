@@ -78,7 +78,7 @@ contract VeTokenUpgradeable is
     string private _symbol;
     uint8 private _decimals;
 
-    uint256 private _totalSupply; // users locked amount
+    uint256 private _lockedTotalSupply; // users locked amount
 
     IERC20MetadataUpgradeable private _tokenERC20; // locked token address
 
@@ -151,7 +151,7 @@ contract VeTokenUpgradeable is
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
-        return _totalSupply;
+        return 0;
     }
 
     /**
@@ -291,6 +291,10 @@ contract VeTokenUpgradeable is
         return _userLockedBalance[account];
     }
 
+    function lockedTotalSupply() public view virtual returns (uint256) {
+        return _lockedTotalSupply;
+    }
+
     function balanceOfAtTime(
         address account,
         uint256 time
@@ -311,6 +315,51 @@ contract VeTokenUpgradeable is
             }
             return lastPoint.bias;
         }
+    }
+
+    /**
+     * @dev Returns the total supply at a given time.
+     */
+    function totalSupplyFromPoint(
+        Point memory point,
+        uint256 atTime
+    ) internal view virtual returns (uint256) {
+        Point memory lastPoint = Point(
+            point.bias,
+            point.slope,
+            point.ts,
+            point.blk
+        );
+
+        //t_i: uint256 = (last_point.ts / WEEK) * WEEK
+        uint256 t_i = calculateUnlockTime(lastPoint.ts); //round to week
+        for (uint256 i = 0; i < 255; i++) {
+            t_i += WEEK;
+
+            uint256 d_slope = 0;
+            if (t_i > atTime) {
+                t_i = atTime;
+            } else {
+                d_slope = _slopeChanges[t_i];
+            }
+
+            lastPoint.bias -= lastPoint.slope * (t_i - lastPoint.ts);
+            if (t_i == atTime) {
+                break;
+            }
+
+            lastPoint.slope += d_slope;
+            lastPoint.ts = t_i;
+        }
+
+        return lastPoint.bias;
+    }
+
+    function totalSupplyAt(uint256 atTime) external view returns (uint256) {
+        //  _epoch: uint256 = self.epoch
+        uint256 _epoch = _currentEpoch;
+        Point memory lastPoint = _pointHistory[_epoch];
+        return totalSupplyFromPoint(lastPoint, atTime);
     }
 
     /// @dev Returns the timestamp of the current block. unlocked
@@ -423,8 +472,8 @@ contract VeTokenUpgradeable is
 
         _userLockedBalance[_msgSender()] = lockedBalance_;
         //update supply
-        uint256 supplyBefore = _totalSupply;
-        _totalSupply -= amount;
+        uint256 supplyBefore = _lockedTotalSupply;
+        _lockedTotalSupply -= amount;
 
         //todo: check point
 
@@ -435,7 +484,7 @@ contract VeTokenUpgradeable is
 
         emit Withdraw(_msgSender(), amount, block.timestamp);
 
-        emit Supply(supplyBefore, _totalSupply);
+        emit Supply(supplyBefore, _lockedTotalSupply);
     }
 
     function _deposit_for(
@@ -451,10 +500,10 @@ contract VeTokenUpgradeable is
         );
         LockedBalance memory lockedBalance_ = lockedBalance;
 
-        uint256 supplyBefore = _totalSupply;
+        uint256 supplyBefore = _lockedTotalSupply;
 
         //update supply
-        _totalSupply += amount;
+        _lockedTotalSupply += amount;
         //update user locked balance
         lockedBalance_.amount += amount;
         if (unlockTime > 0) {
@@ -479,7 +528,7 @@ contract VeTokenUpgradeable is
             block.timestamp
         );
 
-        emit Supply(supplyBefore, _totalSupply);
+        emit Supply(supplyBefore, _lockedTotalSupply);
     }
 
     function _checkpoint(
