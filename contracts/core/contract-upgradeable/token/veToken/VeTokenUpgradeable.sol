@@ -163,28 +163,6 @@ contract VeTokenUpgradeable is
         return balanceOfAtTime(account, block.timestamp);
     }
 
-    function balanceOfAtTime(
-        address account,
-        uint256 time
-    ) public view virtual returns (uint256) {
-        uint256 _epoch = _userPointEpoch[account];
-        if (_epoch == 0) {
-            return 0;
-        } else {
-            Point memory lastPoint = _userPointHistory[account][_epoch];
-            require(lastPoint.ts <= time, "VeToken: time is not in the epoch");
-
-            //the number of ve to be destroyed
-            uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
-            if (_destroyAmount >= lastPoint.bias) {
-                lastPoint.bias = 0;
-            } else {
-                lastPoint.bias -= _destroyAmount;
-            }
-            return lastPoint.bias;
-        }
-    }
-
     /**
      * @dev See {IERC20-transfer}.
      *
@@ -311,6 +289,28 @@ contract VeTokenUpgradeable is
         address account
     ) public view virtual returns (LockedBalance memory) {
         return _userLockedBalance[account];
+    }
+
+    function balanceOfAtTime(
+        address account,
+        uint256 time
+    ) public view virtual returns (uint256) {
+        uint256 _epoch = _userPointEpoch[account];
+        if (_epoch == 0) {
+            return 0;
+        } else {
+            Point memory lastPoint = _userPointHistory[account][_epoch];
+            require(lastPoint.ts <= time, "VeToken: time is not in the epoch");
+
+            //the number of ve to be destroyed
+            uint256 _destroyAmount = lastPoint.slope * (time - lastPoint.ts);
+            if (_destroyAmount >= lastPoint.bias) {
+                lastPoint.bias = 0;
+            } else {
+                lastPoint.bias -= _destroyAmount;
+            }
+            return lastPoint.bias;
+        }
     }
 
     /// @dev Returns the timestamp of the current block. unlocked
