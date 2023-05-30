@@ -151,7 +151,7 @@ contract VeTokenUpgradeable is
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
-        return 0;
+        return this.totalSupplyAtTime(block.timestamp);
     }
 
     /**
@@ -355,7 +355,7 @@ contract VeTokenUpgradeable is
         return lastPoint.bias;
     }
 
-    function totalSupplyAt(uint256 atTime) external view returns (uint256) {
+    function totalSupplyAtTime(uint256 atTime) external view returns (uint256) {
         //  _epoch: uint256 = self.epoch
         uint256 _epoch = _currentEpoch;
         Point memory lastPoint = _pointHistory[_epoch];

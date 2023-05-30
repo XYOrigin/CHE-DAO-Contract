@@ -537,4 +537,66 @@ describe('VeExampleToken', () => {
       expect(veTokenBalance2).gt(veTokenBalance.mul(2));
     });
   });
+
+  describe('totalSupply', () => {
+    let amount: BigNumber = ethers.utils.parseEther('100');
+    let snapshotId: string;
+
+    beforeEach(async () => {
+      snapshotId = await ethers.provider.send('evm_snapshot', []);
+      const [owner] = await ethers.getSigners();
+      //mint token
+      await exampleToken.mint(owner.address, amount);
+    });
+    afterEach(async () => {
+      await ethers.provider.send('evm_revert', [snapshotId]);
+    });
+    it('should 2 users create lock', async () => {
+      const [owner, addr1] = await ethers.getSigners();
+
+      const week = 7 * 24 * 60 * 60;
+      const lockTime = Math.floor(new Date().getTime() / 1000) + week * 10;
+
+      //mint token to addr1
+      await exampleToken.mint(addr1.address, amount);
+
+      //get block timestamp
+      const block = await ethers.provider.getBlock('latest');
+
+      //owner create lock
+      await exampleToken.connect(owner).approve(veExampleToken.address, amount);
+      await veExampleToken
+        .connect(owner)
+        .createLock(amount, BigNumber.from(lockTime));
+
+      const balanceOfOwner = await veExampleToken.balanceOfAtTime(
+        owner.address,
+        block.timestamp + week
+      );
+      let totalSupply = await veExampleToken.totalSupplyAtTime(
+        block.timestamp + week
+      );
+
+      expect(balanceOfOwner).to.equal(totalSupply);
+
+      //addr1 create lock
+      await exampleToken.connect(addr1).approve(veExampleToken.address, amount);
+      await veExampleToken
+        .connect(addr1)
+        .createLock(amount, BigNumber.from(lockTime));
+
+      const balanceOfAddr1 = await veExampleToken.balanceOfAtTime(
+        addr1.address,
+        block.timestamp + week
+      );
+      totalSupply = await veExampleToken.totalSupplyAtTime(
+        block.timestamp + week
+      );
+
+      expect(totalSupply).to.equal(balanceOfOwner.add(balanceOfAddr1));
+
+      const totalSupplyNow = await veExampleToken.totalSupply();
+      expect(totalSupplyNow).to.gt(totalSupply);
+    });
+  });
 });
