@@ -93,7 +93,10 @@ describe('VeExampleToken', () => {
 
       await expect(
         veExampleToken.createLock(amount.div(2), BigNumber.from(lockTime))
-      ).to.be.revertedWith('VeToken: already have a lock');
+      ).to.be.revertedWithCustomError(
+        veExampleToken,
+        'Error_VeTokenUpgradeable__Require_Already_Have_A_Lock'
+      );
     });
 
     it('should create lock success, get veToken', async () => {

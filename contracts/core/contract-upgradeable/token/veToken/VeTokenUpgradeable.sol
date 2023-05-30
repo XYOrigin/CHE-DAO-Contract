@@ -34,6 +34,8 @@ contract VeTokenUpgradeable is
     error Error_VeTokenUpgradeable__Require_Not_Contract();
     //  "VeToken: amount must be greater than zero"
     error Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
+    // "VeToken: already have a lock"
+    error Error_VeTokenUpgradeable__Require_Already_Have_A_Lock();
     // "VeToken: unlock time must be greater than now"
     error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Now();
     //  "VeToken: no locked balance"
@@ -384,7 +386,9 @@ contract VeTokenUpgradeable is
         if (amount == 0) {
             revert Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
         }
-        require(lockedBalance_.amount == 0, "VeToken: already have a lock");
+        if (lockedBalance_.amount != 0) {
+            revert Error_VeTokenUpgradeable__Require_Already_Have_A_Lock();
+        }
         if (unlockTime_ < block.timestamp) {
             revert Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Now();
         }
