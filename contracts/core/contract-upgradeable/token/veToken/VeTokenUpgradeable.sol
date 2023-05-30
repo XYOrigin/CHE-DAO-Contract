@@ -31,16 +31,7 @@ contract VeTokenUpgradeable is
         uint256 end; // lock end time, second
     }
 
-    event Deposit(
-        address indexed user,
-        uint256 amount,
-        uint256 locktime,
-        uint256 operatorType,
-        uint256 blkTime
-    );
-
     error Error_VeTokenUpgradeable__Require_Not_Contract();
-
     //  "VeToken: amount must be greater than zero"
     error Error_VeTokenUpgradeable__Require_Amount_Greater_Than_Zero();
     // "VeToken: unlock time must be greater than now"
@@ -54,14 +45,20 @@ contract VeTokenUpgradeable is
     // "VeToken: unlock time must be greater than current unlock time"
     error Error_VeTokenUpgradeable__Require_Unlock_Time_Must_Be_Greater_Than_Current_Unlock_Time();
 
+    event Deposit(
+        address indexed user,
+        uint256 amount,
+        uint256 locktime,
+        uint256 operatorType,
+        uint256 blkTime
+    );
+
     event Withdraw(address indexed user, uint256 amount, uint256 blkTime);
     event Supply(uint256 preSupply, uint256 supply);
 
-    mapping(address => LockedBalance) private _userLockedBalance; // locked amount
-
     uint256 public constant WEEK = 7 * 86400; // all future times are rounded by week
     uint256 public constant MAXTIME = 4 * 365 * 86400; // 4 years
-    uint256 public constant MULTIPLIER = 10 ** 18;
+    uint256 public constant MULTIPLIER = 1e18;
 
     uint256 public constant OPERATOR_TYPE_CREATE_LOCK = 0; // create lock
     uint256 public constant OPERATOR_TYPE_DEPOSIT = 1; // deposit
@@ -71,6 +68,7 @@ contract VeTokenUpgradeable is
     uint256 private _currentEpoch; // global pledge cycle
     Point[] private _pointHistory; // global pledge point
 
+    mapping(address => LockedBalance) private _userLockedBalance; // locked amount
     mapping(address => Point[]) private _userPointHistory; // user pledge point
     mapping(address => uint256) private _userPointEpoch; //  user pledge cycle
 
@@ -80,9 +78,9 @@ contract VeTokenUpgradeable is
     string private _symbol;
     uint8 private _decimals;
 
-    uint256 private _totalSupply;
+    uint256 private _totalSupply; // users locked amount
 
-    IERC20MetadataUpgradeable private _tokenERC20;
+    IERC20MetadataUpgradeable private _tokenERC20; // locked token address
 
     function __VeToken_init(
         IERC20MetadataUpgradeable tokenERC20_
@@ -286,6 +284,22 @@ contract VeTokenUpgradeable is
     ) internal virtual {
         //not allow transfer
         require(false);
+    }
+
+    function getLastUserSlop() external view returns (uint256) {
+        uint256 uepoch = _userPointEpoch[_msgSender()];
+        return _userPointHistory[_msgSender()][uepoch].slope;
+    }
+
+    function userPointHistoryTs(
+        address account,
+        uint256 epoch
+    ) external view returns (uint256) {
+        return _userPointHistory[account][epoch].ts;
+    }
+
+    function lockedEnd(address account) external view returns (uint256) {
+        return _userLockedBalance[account].end;
     }
 
     function lockedBalanceOf(
@@ -635,22 +649,6 @@ contract VeTokenUpgradeable is
         }
         require(user_epoch == _userPointHistory[account].length, "invariant");
         _userPointHistory[account].push(point);
-    }
-
-    function getLastUserSlop() external view returns (uint256) {
-        uint256 uepoch = _userPointEpoch[_msgSender()];
-        return _userPointHistory[_msgSender()][uepoch].slope;
-    }
-
-    function userPointHistoryTs(
-        address account,
-        uint256 epoch
-    ) external view returns (uint256) {
-        return _userPointHistory[account][epoch].ts;
-    }
-
-    function lockedEnd(address account) external view returns (uint256) {
-        return _userLockedBalance[account].end;
     }
 
     /**
